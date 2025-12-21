@@ -1,0 +1,11 @@
+{
+  "import": [
+    "mizchi/proc_pool/lib",
+    "mizchi/proc_pool/types",
+    "moonbitlang/async"
+  ],
+  "overrides": ["mizchi/proc_pool/impl_js"],
+  "targets": {
+    "test.mbt": ["js"]
+  }
+}

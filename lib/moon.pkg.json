@@ -1,0 +1,8 @@
+{
+  "import": [
+    "mizchi/proc_pool/types"
+  ],
+  "virtual": {
+    "has-default": true
+  }
+}

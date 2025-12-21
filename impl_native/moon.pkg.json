@@ -1,0 +1,15 @@
+{
+  "import": [
+    "mizchi/proc_pool/types",
+    "moonbitlang/async",
+    {
+      "path": "moonbitlang/async/process",
+      "alias": "process"
+    },
+    "moonbitlang/x/encoding"
+  ],
+  "implement": "mizchi/proc_pool/lib",
+  "targets": {
+    "impl.mbt": ["native"]
+  }
+}

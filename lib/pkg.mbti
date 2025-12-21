@@ -1,0 +1,13 @@
+package "mizchi/proc_pool/lib"
+
+import(
+  "mizchi/proc_pool/types"
+)
+
+// Values
+fn hello() -> String
+fn new_pool(max_workers? : Int) -> ProcessPool
+async fn run_all(ProcessPool, Array[@types.Job]) -> Array[@types.JobResult]
+
+// Types and methods
+type ProcessPool

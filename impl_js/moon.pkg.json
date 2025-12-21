@@ -1,0 +1,9 @@
+{
+  "import": [
+    "mizchi/proc_pool/types"
+  ],
+  "implement": "mizchi/proc_pool/lib",
+  "targets": {
+    "impl.mbt": ["js"]
+  }
+}
