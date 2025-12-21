@@ -182,3 +182,112 @@ async test "large number of jobs" {
     assert_eq(result.exit_code, 0)
   }
 }
+
+///|
+async test "default max_workers" {
+  // max_workers を指定しない場合のデフォルト値テスト
+  let pool = ProcessPool::new()
+  let jobs = [
+    job("echo", ["test"]),
+  ]
+  let results = pool.run_all(jobs)
+  assert_eq(results.length(), 1)
+  assert_eq(results[0].exit_code, 0)
+}
+
+///|
+async test "run_all_checked raises on first failure" {
+  let pool = ProcessPool::new(max_workers=1)
+  let jobs = [
+    job("echo", ["before"]),
+    job("false", []),  // この失敗で止まるはず
+    job("echo", ["after"]),
+  ]
+  let error_job_cmd = @ref.new("")
+  ignore(pool.run_all_checked(jobs)) catch {
+    JobError::ProcessFailed(job~, ..) => error_job_cmd.val = job.cmd
+    _ => ()
+  }
+  assert_eq(error_job_cmd.val, "false")
+}
+
+///|
+async test "JobError contains correct exit_code" {
+  let pool = ProcessPool::new(max_workers=1)
+  let jobs = [
+    job("sh", ["-c", "exit 42"]),
+  ]
+  let captured_code = @ref.new(0)
+  ignore(pool.run_all_checked(jobs)) catch {
+    JobError::ProcessFailed(exit_code~, ..) => captured_code.val = exit_code
+    _ => ()
+  }
+  assert_eq(captured_code.val, 42)
+}
+
+///|
+async test "JobError contains stdout and stderr" {
+  let pool = ProcessPool::new(max_workers=1)
+  let jobs = [
+    job("sh", ["-c", "echo output && echo error >&2 && exit 1"]),
+  ]
+  let captured_stdout = @ref.new("")
+  let captured_stderr = @ref.new("")
+  ignore(pool.run_all_checked(jobs)) catch {
+    JobError::ProcessFailed(stdout~, stderr~, ..) => {
+      captured_stdout.val = stdout
+      captured_stderr.val = stderr
+    }
+    _ => ()
+  }
+  assert_true(captured_stdout.val.contains("output"))
+  assert_true(captured_stderr.val.contains("error"))
+}
+
+///|
+async test "JobResult preserves original job" {
+  let pool = ProcessPool::new(max_workers=1)
+  let original_job = job("echo", ["preserve test"], cwd="/tmp", timeout=1000)
+  let jobs = [original_job]
+  let results = pool.run_all(jobs)
+  assert_eq(results[0].job.cmd, "echo")
+  assert_eq(results[0].job.args[0], "preserve test")
+  assert_eq(results[0].job.cwd, Some("/tmp"))
+  assert_eq(results[0].job.timeout, Some(1000))
+}
+
+///|
+async test "multiple timeouts" {
+  let pool = ProcessPool::new(max_workers=2)
+  let jobs = [
+    job("sleep", ["10"], timeout=30),
+    job("sleep", ["10"], timeout=30),
+  ]
+  let results = pool.run_all(jobs)
+  assert_eq(results.length(), 2)
+  assert_true(results[0].timed_out)
+  assert_true(results[1].timed_out)
+}
+
+///|
+async test "special characters in arguments" {
+  let pool = ProcessPool::new(max_workers=1)
+  let jobs = [
+    job("echo", ["hello world", "foo\tbar", "a'b\"c"]),
+  ]
+  let results = pool.run_all(jobs)
+  assert_eq(results[0].exit_code, 0)
+  assert_true(results[0].stdout.contains("hello world"))
+}
+
+///|
+async test "environment inherits from parent" {
+  let pool = ProcessPool::new(max_workers=1)
+  let jobs = [
+    job("sh", ["-c", "echo $HOME"]),
+  ]
+  let results = pool.run_all(jobs)
+  assert_eq(results[0].exit_code, 0)
+  // HOME 環境変数が継承されていることを確認
+  assert_true(results[0].stdout.trim_space().to_string().length() > 0)
+}
