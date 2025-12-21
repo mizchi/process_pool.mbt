@@ -1,4 +1,4 @@
-# proc_pool justfile
+# process_pool justfile
 
 # デフォルトタスク: 全テスト実行
 default: test

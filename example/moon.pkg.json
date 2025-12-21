@@ -1,6 +1,9 @@
 {
   "import": [
-    { "path": "mizchi/proc_pool", "alias": "proc_pool" },
+    {
+      "path": "mizchi/process_pool",
+      "alias": "process_pool"
+    },
     "moonbitlang/async"
   ],
   "is-main": true

@@ -1,0 +1,52 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "mizchi/process_pool"
+
+import(
+  "moonbitlang/async/semaphore"
+)
+
+// Values
+pub fn job(String, Array[String], cwd? : String, timeout? : Int) -> Job
+
+pub fn now() -> Int64
+
+// Errors
+pub suberror JobError {
+  ProcessFailed(job~ : Job, exit_code~ : Int, stdout~ : String, stderr~ : String)
+  ProcessTimedOut(job~ : Job, timeout~ : Int, stdout~ : String, stderr~ : String)
+}
+
+// Types and methods
+pub struct Job {
+  cmd : String
+  args : Array[String]
+  cwd : String?
+  timeout : Int?
+}
+
+pub struct JobResult {
+  job : Job
+  exit_code : Int
+  stdout : String
+  stderr : String
+  timed_out : Bool
+}
+
+pub(all) struct OnJobComplete((JobResult) -> Unit)
+#deprecated
+pub fn OnJobComplete::inner(Self) -> (JobResult) -> Unit
+
+pub struct ProcessPool {
+  max_workers : Int
+  semaphore : @semaphore.Semaphore
+  on_complete : OnJobComplete?
+}
+pub async fn[T] ProcessPool::map(Self, Array[T], (T) -> Job) -> Array[JobResult]
+pub fn ProcessPool::new(max_workers? : Int, on_complete? : OnJobComplete) -> Self
+pub async fn ProcessPool::run_all(Self, Array[Job]) -> Array[JobResult]
+pub async fn ProcessPool::run_all_checked(Self, Array[Job]) -> Array[JobResult]
+
+// Type aliases
+
+// Traits
+

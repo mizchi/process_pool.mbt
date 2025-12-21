@@ -1,0 +1,9 @@
+{
+  "name": "mizchi/process_pool_examples",
+  "deps": {
+    "mizchi/process_pool": {
+      "path": "../"
+    },
+    "moonbitlang/async": "0.15.0"
+  }
+}
