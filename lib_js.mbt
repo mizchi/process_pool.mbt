@@ -54,6 +54,20 @@ extern "js" fn spawn_and_collect(
   #| }
 
 // --- Semaphore implementation for JS ---
+//
+// 注意: JS環境のSemaphoreはNative環境と異なる動作特性を持つ
+//
+// JavaScriptはシングルスレッドで、async/awaitは協調的マルチタスキング。
+// @js_async.Promise::from_async で複数のPromiseを生成すると、
+// 各Promiseの実行開始タイミングがJS Event Loopのスケジューリングに依存する。
+//
+// 問題: acquire() の `if self.current < self.max` チェックと `self.current += 1` の間に
+// 他のPromiseが割り込む可能性があり、max_workers=1でも複数ジョブが同時に
+// acquire を通過することがある。
+//
+// これはJSランタイムの制約であり、真のプリエンプティブな並行制御には
+// Worker Threads等の別アプローチが必要。そのため、タイミングに依存する
+// テストはnative専用としている（lib_native_test.mbt参照）。
 
 /// Simple semaphore for concurrency control
 struct JsSemaphore {

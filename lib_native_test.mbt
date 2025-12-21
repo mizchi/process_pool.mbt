@@ -1,5 +1,14 @@
 // Native専用テスト: タイミングに依存するテスト
-// JS環境ではSemaphoreの動作タイミングが異なるため、native専用
+//
+// JS環境ではSemaphoreの動作特性が異なるため、これらのテストはnative専用。
+//
+// 理由:
+// - Native: @async.Semaphore はOSレベルで真の同期を提供
+// - JS: シングルスレッド + 協調的マルチタスキング（async/await）
+//       Promise生成時のEvent Loopスケジューリングにより、
+//       acquire()のチェックが複数Promiseで同時に通過する可能性がある
+//
+// 詳細は lib_js.mbt のSemaphore実装のコメントを参照
 
 ///|
 async test "max_workers limits concurrency" {
