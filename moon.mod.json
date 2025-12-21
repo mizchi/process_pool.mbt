@@ -1,0 +1,7 @@
+{
+  "name": "mizchi/proc_pool",
+  "deps": {
+    "moonbitlang/async": "0.15.0",
+    "moonbitlang/x": "0.4.38"
+  }
+}
