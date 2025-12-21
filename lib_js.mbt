@@ -55,19 +55,19 @@ extern "js" fn spawn_and_collect(
 
 // --- Semaphore implementation for JS ---
 //
-// 注意: JS環境のSemaphoreはNative環境と異なる動作特性を持つ
+// Note: The JS Semaphore has different behavior characteristics than Native.
 //
-// JavaScriptはシングルスレッドで、async/awaitは協調的マルチタスキング。
-// @js_async.Promise::from_async で複数のPromiseを生成すると、
-// 各Promiseの実行開始タイミングがJS Event Loopのスケジューリングに依存する。
+// JavaScript is single-threaded, and async/await is cooperative multitasking.
+// When multiple Promises are created via @js_async.Promise::from_async,
+// the execution start timing of each Promise depends on JS Event Loop scheduling.
 //
-// 問題: acquire() の `if self.current < self.max` チェックと `self.current += 1` の間に
-// 他のPromiseが割り込む可能性があり、max_workers=1でも複数ジョブが同時に
-// acquire を通過することがある。
+// Problem: Between the `if self.current < self.max` check and `self.current += 1`
+// in acquire(), other Promises may interleave. This means even with max_workers=1,
+// multiple jobs can pass through acquire() simultaneously.
 //
-// これはJSランタイムの制約であり、真のプリエンプティブな並行制御には
-// Worker Threads等の別アプローチが必要。そのため、タイミングに依存する
-// テストはnative専用としている（lib_native_test.mbt参照）。
+// This is a JS runtime limitation. True preemptive concurrency control would
+// require a different approach (e.g., Worker Threads). Therefore, timing-dependent
+// tests are native-only (see lib_native_test.mbt).
 
 /// Simple semaphore for concurrency control
 struct JsSemaphore {
@@ -113,14 +113,14 @@ fn JsSemaphore::release(self : JsSemaphore) -> Unit {
 
 // --- ProcessPool implementation ---
 
-/// プロセスプール
+/// Process pool
 pub struct ProcessPool {
   max_workers : Int
   semaphore : JsSemaphore
   on_complete : OnJobComplete?
 }
 
-/// プロセスプールを作成
+/// Create a process pool
 pub fn ProcessPool::new(
   max_workers~ : Int = 4,
   on_complete? : OnJobComplete,
@@ -132,7 +132,7 @@ pub fn ProcessPool::new(
   }
 }
 
-/// 単一のジョブを実行
+/// Execute a single job
 async fn run_job(job : Job) -> JobResult {
   let promise = spawn_and_collect(job.cmd, job.args, job.cwd, job.timeout)
   let result : SpawnResult = @js_async.run_promise(fn(_signal) {
@@ -151,7 +151,7 @@ async fn run_job(job : Job) -> JobResult {
 ///|
 fn[T, U] JsPromise::cast(self : JsPromise[T]) -> @js_async.Promise[U] = "%identity"
 
-/// Semaphore で制限しながらジョブを実行
+/// Execute job with semaphore-limited concurrency
 async fn run_job_with_semaphore(
   semaphore : JsSemaphore,
   job : Job,
@@ -166,12 +166,12 @@ async fn run_job_with_semaphore(
   result
 }
 
-/// 複数のジョブを並列実行
+/// Run multiple jobs in parallel
 pub async fn ProcessPool::run_all(
   self : ProcessPool,
   jobs : Array[Job],
 ) -> Array[JobResult] {
-  // JS版ではPromise.allを使って並列実行
+  // JS version uses Promise-based parallel execution
   let promises : Array[@js_async.Promise[JobResult]] = jobs.map(fn(job) {
     @js_async.Promise::from_async(fn() {
       run_job_with_semaphore(self.semaphore, job, self.on_complete)
@@ -184,7 +184,7 @@ pub async fn ProcessPool::run_all(
   results
 }
 
-/// 現在時刻をミリ秒で取得
+/// Get current time in milliseconds
 pub fn now() -> Int64 {
   js_date_now()
 }

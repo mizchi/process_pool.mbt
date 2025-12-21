@@ -1,17 +1,17 @@
 // Native (C backend) implementation
 
-/// プロセスプール
+/// Process pool
 pub struct ProcessPool {
   max_workers : Int
   semaphore : @async.Semaphore
-  on_complete : OnJobComplete? // ジョブ完了時のコールバック
+  on_complete : OnJobComplete? // Callback on job completion
 }
 
-/// プロセスプールを作成
+/// Create a process pool
 ///
 /// Parameters:
-/// - `max_workers`: 同時実行するプロセスの最大数（デフォルト: 4）
-/// - `on_complete`: ジョブ完了時に呼ばれるコールバック（オプション）
+/// - `max_workers`: Maximum number of concurrent processes (default: 4)
+/// - `on_complete`: Callback invoked on job completion (optional)
 pub fn ProcessPool::new(
   max_workers~ : Int = 4,
   on_complete? : OnJobComplete,
@@ -23,7 +23,7 @@ pub fn ProcessPool::new(
   }
 }
 
-/// 単一のジョブを実行（内部関数）
+/// Execute a single job (internal function)
 async fn run_job(job : Job) -> JobResult {
   let decoder = @encoding.decoder(UTF8)
 
@@ -56,7 +56,7 @@ async fn run_job(job : Job) -> JobResult {
   }
 }
 
-/// Semaphore で同時実行数を制限しながらジョブを実行（内部関数）
+/// Execute job with semaphore-limited concurrency (internal function)
 async fn run_job_with_semaphore(
   semaphore : @async.Semaphore,
   job : Job,
@@ -71,10 +71,10 @@ async fn run_job_with_semaphore(
   result
 }
 
-/// 複数のジョブを並列実行し、すべての結果を返す
+/// Run multiple jobs in parallel and return all results
 ///
-/// すべてのジョブが完了するまで待機し、結果の配列を返す。
-/// ジョブの順序は入力と同じ順序で保持される。
+/// Waits for all jobs to complete and returns the results array.
+/// Job order is preserved matching the input order.
 pub async fn ProcessPool::run_all(
   self : ProcessPool,
   jobs : Array[Job],
@@ -90,7 +90,7 @@ pub async fn ProcessPool::run_all(
   })
 }
 
-/// 現在時刻をミリ秒で取得
+/// Get current time in milliseconds
 pub fn now() -> Int64 {
   @async.now()
 }

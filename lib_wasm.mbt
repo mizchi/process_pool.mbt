@@ -1,13 +1,13 @@
 // WebAssembly (wasm, wasm-gc) stub implementation
 // These backends are not yet implemented.
 
-/// プロセスプール (未実装)
+/// Process pool (not implemented)
 pub struct ProcessPool {
   max_workers : Int
   on_complete : OnJobComplete?
 }
 
-/// プロセスプールを作成
+/// Create a process pool
 pub fn ProcessPool::new(
   max_workers~ : Int = 4,
   on_complete? : OnJobComplete,
@@ -15,7 +15,7 @@ pub fn ProcessPool::new(
   ProcessPool::{ max_workers, on_complete }
 }
 
-/// 複数のジョブを並列実行（未実装）
+/// Run multiple jobs in parallel (not implemented)
 pub async fn ProcessPool::run_all(
   self : ProcessPool,
   jobs : Array[Job],

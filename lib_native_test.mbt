@@ -1,14 +1,14 @@
-// Native専用テスト: タイミングに依存するテスト
+// Native-only tests: Timing-dependent tests
 //
-// JS環境ではSemaphoreの動作特性が異なるため、これらのテストはnative専用。
+// These tests are native-only because the JS Semaphore has different behavior.
 //
-// 理由:
-// - Native: @async.Semaphore はOSレベルで真の同期を提供
-// - JS: シングルスレッド + 協調的マルチタスキング（async/await）
-//       Promise生成時のEvent Loopスケジューリングにより、
-//       acquire()のチェックが複数Promiseで同時に通過する可能性がある
+// Reason:
+// - Native: @async.Semaphore provides true OS-level synchronization
+// - JS: Single-threaded + cooperative multitasking (async/await)
+//       Due to Event Loop scheduling during Promise creation,
+//       multiple Promises may pass through acquire() check simultaneously
 //
-// 詳細は lib_js.mbt のSemaphore実装のコメントを参照
+// See lib_js.mbt Semaphore implementation comments for details
 
 ///|
 async test "max_workers limits concurrency" {
@@ -25,7 +25,7 @@ async test "max_workers limits concurrency" {
   for result in results {
     assert_eq(result.exit_code, 0)
   }
-  // max_workers=1 なので順次実行、2 * 100ms = 200ms 以上かかるはず
+  // max_workers=1 means sequential execution, 2 * 100ms = 200ms+ expected
   assert_true(elapsed >= 150L)
 }
 
@@ -46,6 +46,6 @@ async test "parallel execution is faster" {
   for result in results {
     assert_eq(result.exit_code, 0)
   }
-  // max_workers=4 なので並列実行、100ms + α で終わるはず
+  // max_workers=4 means parallel execution, should finish in ~100ms + overhead
   assert_true(elapsed < 300L)
 }

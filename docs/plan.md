@@ -1,209 +1,179 @@
-了解、ここから先は「コーディングエージェントが GitHub を読みながら実装していく」前提で、やりたいことと次に調査／実装することを整理したドキュメントを書きます。
+# Moonbit SSG Parallelization Plan
 
-そのまま README 的に使えるように Markdown でまとめます。
-
----
-
-# Moonbit SSG 並列化計画メモ
-
-## 1. やりたいこと（ゴール）
-
-### 1-1. 技術的ゴール
-
-* Moonbit で書かれた Markdown→HTML SSG のビルドを **マルチコア並列化**したい。
-* 目標は「ページ数が増えてもビルド時間が線形に伸びすぎない」こと。
-* Moonbit 本体（VM や言語ランタイム）を拡張せず、**ユーザーレベルの実装**で実現する。
-
-### 1-2. モデルのイメージ
-
-* プロセスモデルというより「**ページ単位のビルドジョブを並行実行するタスクシステム**」。
-* 状態をべったり共有するのではなく、
-
-  * 「親がジョブキューを持ち」
-  * 「ワーカー（プロセス or Worker Thread）がジョブを取りに行き」
-  * 「成功／失敗を親に返す」
-    という **メッセージパッシングモデル**をベースにする。
-
-### 1-3. JS との関係
-
-* JS への依存は**最小限**にしたい。
-* ただし現実路線として：
-
-  * **JS backend + Node の `worker_threads`** で並列化する案
-  * **ネイティブ backend + `@process` によるマルチプロセス実行**案
-* この両方を検討し、最終的にどちらか（または両対応）を採用する。
+This document is intended as a reference for coding agents implementing the project while reading GitHub repositories.
 
 ---
 
-## 2. 現状整理
+## 1. Goals
 
-### 2-1. SSG の現状
+### 1-1. Technical Goals
 
-* Moonbit で Markdown → HTML の SSG を実装済み（シングルスレッド）。
-* 想定フロー：
+* Parallelize the Markdown→HTML SSG build written in Moonbit using **multi-core parallelization**.
+* Target: "Build time shouldn't scale linearly as page count increases."
+* Achieve this at the **user level** without extending Moonbit core (VM or language runtime).
 
-  1. `content/**/*.md` の列挙
-  2. Markdown をファイル単位で読み込み
-  3. パース／HTML 化（CPU heavy）
-  4. テンプレート適用
-  5. `dist/**/*.html` に書き出し
-* ページ数増加に伴い、単純な逐次処理では CPU が詰まりビルド時間が長くなっている。
+### 1-2. Model Concept
 
-### 2-2. Moonbit の async / Maria から得た知見（要約）
+* Rather than a process model, think of it as a "**task system that concurrently executes per-page build jobs**".
+* Instead of sharing state directly:
+  * "Parent holds the job queue"
+  * "Workers (processes or Worker Threads) fetch jobs"
+  * "Workers return success/failure to parent"
+  * Based on a **message passing model**.
 
-* `moonbitlang/async` は **イベントループ + 構造化コンカレンシ + 各種プリミティブ**を提供する。
+### 1-3. Relationship with JS
 
-  * `with_task_group`, `spawn_bg`, `Semaphore`, `aqueue.Queue`, `sleep`, `retry`, `@process.*` など。
-* Maria はこの `async` の上に構築された **非同期タスクシステム**＆エージェント実装。
-
-  * 「タスク管理＋外部プロセス呼び出し＋IO」を Moonbit だけで頑張っている例として参考になる。
-* ただし `async` はシングルスレッドのイベントループなので、
-
-  * **「1 プロセス内で CPU をガチ並列実行」**はできない。
-  * 真の並列化には「マルチプロセス or 複数 OS スレッド」が必要。
+* Want to **minimize JS dependencies**.
+* However, pragmatically considering:
+  * **JS backend + Node `worker_threads`** for parallelization
+  * **Native backend + `@process` for multi-process execution**
+* Will evaluate both approaches, ultimately adopting one (or both).
 
 ---
 
-## 3. 設計方針（仮）
+## 2. Current State
 
-### 3-1. コア方針
+### 2-1. SSG Current State
 
-1. **ページ単位の「レンダリング関数」を Moonbit 側に切り出す**
+* Markdown → HTML SSG implemented in Moonbit (single-threaded).
+* Expected flow:
+  1. Enumerate `content/**/*.md`
+  2. Load Markdown files individually
+  3. Parse/HTML conversion (CPU heavy)
+  4. Apply templates
+  5. Write to `dist/**/*.html`
+* As page count increases, sequential processing causes CPU bottlenecks and longer build times.
 
-   * 例：`render_page(job: RenderJob) -> Result[Unit, Error]`
-   * 入力: Markdown パス、出力パス、共通設定など。
-   * SSG の本質ロジックはできるだけ Moonbit 内に閉じ込める。
+### 2-2. Moonbit async / Insights from Maria (Summary)
 
-2. **ビルドを orchestrate する「タスクシステム」を作る**
-
-   * ジョブキュー（配列 or `aqueue.Queue`）
-   * Worker（Moonbit タスク or 子プロセス or worker_thread）
-   * 成功／失敗の集約
-
-3. **並列化の戦略を2レイヤで用意しておく**
-
-   * **レイヤA:単一プロセス＋async（シンプル版）**
-
-     * IO が多い／エディタ連携用など、軽めな用途向け。
-   * **レイヤB:マルチプロセス／Worker Threads（ガチビルド用）**
-
-     * CPU バウンドな SSG のフルビルド向け。
-
-### 3-2. 2つの具体的ルート
-
-#### ルート1: Native backend ＋ `@process` （Moonbit だけで完結）
-
-* Moonbit で以下を実装：
-
-  * `ssg-worker` : 単一ページをビルドするサブコマンド。
-  * `ssg-orchestrator` : ジョブリストを読み込み、`@process.run` / `collect_output_merged` で `ssg-worker` を最大 N 並列で起動。
-* `Semaphore` や `TaskGroup` で同時プロセス数を制御。
-* メリット：
-
-  * JS にほぼ依存しない。
-  * Maria と似た構造（`@process` で外部コマンド）なので、参考にしやすい。
-* デメリット：
-
-  * プロセス起動オーバーヘッドはある（ただし SSG なら概ね許容範囲）。
-
-#### ルート2: JS backend ＋ Node `worker_threads`
-
-* Moonbit を JS backend でビルドし、Node から以下を構成：
-
-  * `moonbit/dist/ssg.js` 内に `renderFile(inputPath, outputPath)` のような関数を用意。
-  * Node のメインスレッドがファイル一覧を作り、Worker のプールを作成。
-  * 各 Worker が `renderFile` を呼んで結果を返す。
-* メリット：
-
-  * Node のエコシステム（glob, chokidar, etc.）を活用しやすい。
-  * watch, dev server 等も JS 側で作りやすい。
-* デメリット：
-
-  * JS backend の async 状態など、Moonbit と JS の橋渡し部分を把握する必要がある。
-  * 「JS 依存を減らしたい」というモチベとはやや逆方向。
+* `moonbitlang/async` provides **event loop + structured concurrency + various primitives**.
+  * `with_task_group`, `spawn_bg`, `Semaphore`, `aqueue.Queue`, `sleep`, `retry`, `@process.*`, etc.
+* Maria is an **async task system** & agent implementation built on top of `async`.
+  * Useful as a reference for "task management + external process calls + IO" done purely in Moonbit.
+* However, `async` is a single-threaded event loop, so:
+  * **"True parallel CPU execution within a single process"** is not possible.
+  * True parallelization requires "multi-process or multiple OS threads".
 
 ---
 
-## 4. 次に調査すること（Coding Agent 向けタスクリスト）
+## 3. Design Approach (Tentative)
 
-### 4-1. Moonbit async / Maria 関連
+### 3-1. Core Principles
 
-* [ ] `moonbitlang/async` の GitHub リポジトリを開き、以下を重点的に読む：
+1. **Extract per-page "rendering function" into Moonbit**
+   * Example: `render_page(job: RenderJob) -> Result[Unit, Error]`
+   * Input: Markdown path, output path, common config, etc.
+   * Keep core SSG logic contained within Moonbit as much as possible.
 
-  * `src/async.mbt` : `with_task_group`, `spawn_bg`, `Semaphore`, `Queue` などの public API。
-  * `@process` 系のモジュール：`run`, `collect_output_merged`, `spawn` 等のインターフェース。
-* [ ] Maria の GitHub（`moonbit-maria`）を読み、
+2. **Create a "task system" to orchestrate builds**
+   * Job queue (array or `aqueue.Queue`)
+   * Workers (Moonbit tasks or child processes or worker_threads)
+   * Success/failure aggregation
 
-  * タスク管理やジョブキュー周り（Agent のメインループ、タスク登録、外部コマンド呼び出し）の実装を抽出。
-  * 「タスクの再利用／キャンセル／エラー処理」のパターンをメモ。
+3. **Prepare parallelization strategies at two layers**
+   * **Layer A: Single process + async (simple version)**
+     * For IO-heavy or editor integration use cases.
+   * **Layer B: Multi-process / Worker Threads (for serious builds)**
+     * For CPU-bound full SSG builds.
 
-### 4-2. SSG コアライブラリの API 設計
+### 3-2. Two Concrete Routes
 
-* [ ] 現行 SSG のコードベースを整理し、**1 ページレンダリングの最小 API** を決める：
+#### Route 1: Native backend + `@process` (Moonbit only)
 
-  * 入力：`input_path: String`, `output_path: String`, `config: Config` など。
-  * 出力：`Result[Unit, RenderError]`（warning を含めるなら別 struct）。
-* [ ] `render_page` を Moonbit 内で完結する純粋関数群に分解：
+* Implement in Moonbit:
+  * `ssg-worker`: Subcommand that builds a single page.
+  * `ssg-orchestrator`: Reads job list, uses `@process.run` / `collect_output_merged` to launch `ssg-worker` up to N in parallel.
+* Control concurrent process count with `Semaphore` or `TaskGroup`.
+* Pros:
+  * Almost no JS dependency.
+  * Similar structure to Maria (`@process` for external commands), easy to reference.
+* Cons:
+  * Process startup overhead exists (but generally acceptable for SSG).
 
+#### Route 2: JS backend + Node `worker_threads`
+
+* Build Moonbit with JS backend, configure from Node:
+  * Prepare `renderFile(inputPath, outputPath)` function in `moonbit/dist/ssg.js`.
+  * Node main thread creates file list and worker pool.
+  * Each Worker calls `renderFile` and returns results.
+* Pros:
+  * Easy to leverage Node ecosystem (glob, chokidar, etc.).
+  * Easy to build watch, dev server, etc. on JS side.
+* Cons:
+  * Need to understand Moonbit-JS bridging (async state, etc.).
+  * Somewhat opposite to "minimize JS dependency" motivation.
+
+---
+
+## 4. Investigation Tasks (For Coding Agent)
+
+### 4-1. Moonbit async / Maria Related
+
+* [ ] Open `moonbitlang/async` GitHub repository and focus on:
+  * `src/async.mbt`: `with_task_group`, `spawn_bg`, `Semaphore`, `Queue` and other public APIs.
+  * `@process` modules: `run`, `collect_output_merged`, `spawn` interfaces.
+* [ ] Read Maria GitHub (`moonbit-maria`):
+  * Extract task management and job queue implementation (Agent main loop, task registration, external command calls).
+  * Note patterns for "task reuse / cancellation / error handling".
+
+### 4-2. SSG Core Library API Design
+
+* [ ] Organize current SSG codebase, define **minimal API for single page rendering**:
+  * Input: `input_path: String`, `output_path: String`, `config: Config`, etc.
+  * Output: `Result[Unit, RenderError]` (separate struct if including warnings).
+* [ ] Decompose `render_page` into pure functions within Moonbit:
   * `load_markdown(path) -> String`
   * `parse_markdown(src) -> Ast`
   * `render_ast(ast, ctx) -> String`
   * `write_html(path, html) -> Unit`
-* [ ] この API がネイティブ／JS どちらの backend からも呼びやすい形になっているか確認。
+* [ ] Verify this API is easily callable from both native and JS backends.
 
-### 4-3. ルート1（Native + @process）検証タスク
+### 4-3. Route 1 (Native + @process) Verification Tasks
 
-* [ ] Moonbit で `ssg-worker` サブコマンドを実装：
+* [ ] Implement `ssg-worker` subcommand in Moonbit:
+  * `ssg worker --input input.md --output dist/input.html` format, or pass job as JSON argument.
+* [ ] Write sample implementation calling own `ssg-worker` from Moonbit program using `@process.collect_output_merged`.
+* [ ] Write code limiting concurrent processes (= core count or arbitrary value) with `Semaphore` + `with_task_group`.
+* [ ] Test with small Markdown set, verify success/failure behavior (exit code, stderr).
 
-  * `ssg worker --input input.md --output dist/input.html` 形式、または JSON 引数で job を渡す方式。
-* [ ] `@process.collect_output_merged` を用いて、Moonbit プログラムから自身の `ssg-worker` を呼び出すサンプル実装を書く。
-* [ ] `Semaphore` + `with_task_group` で同時起動プロセス数（= コア数 or 任意値）を制限するコードを書く。
-* [ ] 小さな Markdown セットで動作確認し、成功／失敗時の挙動（exit code, stderr）を確認。
+### 4-4. Route 2 (JS backend + worker_threads) Verification Tasks
 
-### 4-4. ルート2（JS backend + worker_threads）検証タスク
+* [ ] Build SSG core with JS backend, verify Node can import it.
+* [ ] Create minimal sample calling `renderFile(input, output)` from Node.
+* [ ] Write simple "Job → Worker → Result" cycle sample using `worker_threads`.
+* [ ] Verify flow for propagating failed page errors from Worker to main, setting exit code to 1.
 
-* [ ] SSG コアを JS backend でビルドし、Node から import できるか確認。
-* [ ] `renderFile(input, output)` を Node 側から呼ぶ最小サンプルを作成。
-* [ ] `worker_threads` を使って簡単な「Job → Worker → Result」サイクルのサンプルを書く。
-* [ ] 失敗したページのエラーを Worker からメインへ伝播させ、exit code を 1 にするフローを確認。
+### 4-5. Performance and Behavior Verification
 
-### 4-5. パフォーマンス・挙動確認
-
-* [ ] 小～中規模のコンテンツセットで：
-
-  * 逐次実行
-  * ルート1（マルチプロセス）
-  * ルート2（worker_threads）
-    を比較し、ビルド時間と CPU 使用率を計測。
-* [ ] ページ数が増えたときのスケーリング挙動と問題点（プロセス数制限、IO ボトルネックなど）を記録。
+* [ ] With small-to-medium content set:
+  * Sequential execution
+  * Route 1 (multi-process)
+  * Route 2 (worker_threads)
+  * Compare build times and CPU usage.
+* [ ] Record scaling behavior and issues (process limits, IO bottlenecks, etc.) as page count increases.
 
 ---
 
-## 5. 実装時の注意点メモ
+## 5. Implementation Notes
 
-* **状態共有を欲張らない**：
+* **Don't over-share state**:
+  * SSG pages are typically independent.
+  * "Export metadata to JSON beforehand, each job reads it" is safer and simpler than "share giant global state".
 
-  * SSG の性質上、ページ単位で独立していることが多い。
-  * 「巨大なグローバル状態を共有する」より、「事前にメタ情報を JSON などに出しておき、各ジョブはそれを読む」方が安全でシンプル。
+* **Design error handling and logging from the start**:
+  * How to express success/failure (`Result` / exit code / JSON response, etc.).
+  * Standardize log format (job id, path, error message).
 
-* **エラーとログの設計を最初から決める**：
-
-  * 成功／失敗をどう表現するか（`Result` / exit code / JSON レスポンスなど）。
-  * ログのフォーマット（job id, path, error message）を揃えておく。
-
-* **後から UI / HTTP 化できるように**：
-
-  * Maria のように「daemon + HTTP API」に発展させたい場合、
-
-    * ビルドオーケストレータのコアロジックを純粋関数 or 独立モジュールとして切り出し、
-    * CLI / HTTP / Node CLI などから共通利用できるようにしておくと拡張しやすい。
+* **Keep future UI / HTTP expansion in mind**:
+  * If wanting to evolve into "daemon + HTTP API" like Maria:
+    * Extract build orchestrator core logic as pure functions or independent modules.
+    * Enable common usage from CLI / HTTP / Node CLI for easier extension.
 
 ---
 
-こんな感じで、
+This document organizes:
+* What we want to do (SSG multi-core parallelization)
+* Design approach (task system + per-job parallelization)
+* What to read and build (async/Maria/SSG core API/@process/worker_threads)
 
-* 何をしたいか（SSG のマルチコア並列化）
-* どんな設計方針か（タスクシステム＋ジョブ単位の並列）
-* 何を読み・何を作るか（async/Maria/SSG コア API/@process/worker_threads）
-
-を整理しておけば、コーディングエージェントに渡したときも迷いなく進めやすくなると思います。
+This should help coding agents proceed without confusion.

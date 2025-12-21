@@ -1,4 +1,4 @@
-// 共通テスト: native と js の両方で実行される
+// Common tests: Run on both native and js
 
 ///|
 async test "ProcessPool runs jobs in parallel" {
@@ -185,7 +185,7 @@ async test "large number of jobs" {
 
 ///|
 async test "default max_workers" {
-  // max_workers を指定しない場合のデフォルト値テスト
+  // Test default value when max_workers is not specified
   let pool = ProcessPool::new()
   let jobs = [
     job("echo", ["test"]),
@@ -200,7 +200,7 @@ async test "run_all_checked raises on first failure" {
   let pool = ProcessPool::new(max_workers=1)
   let jobs = [
     job("echo", ["before"]),
-    job("false", []),  // この失敗で止まるはず
+    job("false", []),  // Should fail here
     job("echo", ["after"]),
   ]
   let error_job_cmd = @ref.new("")
@@ -288,7 +288,7 @@ async test "environment inherits from parent" {
   ]
   let results = pool.run_all(jobs)
   assert_eq(results[0].exit_code, 0)
-  // HOME 環境変数が継承されていることを確認
+  // Verify HOME environment variable is inherited
   assert_true(results[0].stdout.trim_space().to_string().length() > 0)
 }
 

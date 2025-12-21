@@ -1,57 +1,57 @@
-// proc_pool: Moonbit プロセスプールライブラリ
+// proc_pool: Moonbit Process Pool Library
 //
-// 複数のプロセスを並列実行するタスクランナー
+// A task runner for parallel process execution.
 //
-// 設計方針:
-// - Semaphore で同時実行数を制限
-// - TaskGroup で構造化コンカレンシを実現
-// - @process.run で子プロセスを実行
+// Design:
+// - Semaphore limits concurrent execution count
+// - TaskGroup provides structured concurrency
+// - @process.run executes child processes
 //
-// 使用例:
+// Example:
 //   let pool = @proc_pool.ProcessPool::new(max_workers=4)
 //   let results = pool.run_all([
 //     @proc_pool.job("echo", ["hello"]),
 //     @proc_pool.job("echo", ["world"]),
 //   ])
 //
-// 対応プラットフォーム:
-// - native: フル機能
-// - js: Node.js 環境でフル機能
-// - wasm/wasm-gc: 未実装 (abort)
+// Supported platforms:
+// - native: Full functionality
+// - js: Full functionality in Node.js environment
+// - wasm/wasm-gc: Not implemented (abort)
 
-/// ジョブの定義
+/// Job definition
 pub struct Job {
   cmd : String
   args : Array[String]
   cwd : String?
-  timeout : Int? // タイムアウト（ミリ秒）
+  timeout : Int? // Timeout in milliseconds
 }
 
-/// ジョブの実行結果
+/// Job execution result
 pub struct JobResult {
   job : Job
   exit_code : Int
   stdout : String
   stderr : String
-  timed_out : Bool // タイムアウトしたかどうか
+  timed_out : Bool // Whether the job timed out
 }
 
-/// ジョブ実行時のエラー
+/// Job execution error
 pub suberror JobError {
   ProcessFailed(job~ : Job, exit_code~ : Int, stdout~ : String, stderr~ : String)
   ProcessTimedOut(job~ : Job, timeout~ : Int, stdout~ : String, stderr~ : String)
 }
 
-/// ジョブ完了時のコールバック
+/// Callback invoked on job completion
 pub(all) struct OnJobComplete((JobResult) -> Unit)
 
-/// ジョブを作成するヘルパー関数
+/// Helper function to create a job
 ///
 /// Parameters:
-/// - `cmd`: 実行するコマンド
-/// - `args`: コマンドの引数
-/// - `cwd`: 作業ディレクトリ（オプション）
-/// - `timeout`: タイムアウト時間（ミリ秒、オプション）
+/// - `cmd`: Command to execute
+/// - `args`: Command arguments
+/// - `cwd`: Working directory (optional)
+/// - `timeout`: Timeout in milliseconds (optional)
 pub fn job(
   cmd : String,
   args : Array[String],
@@ -61,10 +61,10 @@ pub fn job(
   Job::{ cmd, args, cwd, timeout }
 }
 
-/// 複数のジョブを並列実行し、エラーがあれば例外を発生させる
+/// Run multiple jobs in parallel and raise an exception on error
 ///
-/// いずれかのジョブが失敗（exit_code != 0）またはタイムアウトした場合、
-/// JobError を raise する。
+/// If any job fails (exit_code != 0) or times out,
+/// raises JobError.
 pub async fn ProcessPool::run_all_checked(
   self : ProcessPool,
   jobs : Array[Job],
@@ -91,10 +91,10 @@ pub async fn ProcessPool::run_all_checked(
   results
 }
 
-/// 入力データを変換してジョブを作成し、並列実行する
+/// Transform input data into jobs and run them in parallel
 ///
-/// SSG などのユースケースで、ファイルリストなどから
-/// ジョブを生成して並列実行する場合に便利。
+/// Useful for SSG and similar use cases where jobs are generated
+/// from file lists and executed in parallel.
 pub async fn[T] ProcessPool::map(
   self : ProcessPool,
   items : Array[T],
