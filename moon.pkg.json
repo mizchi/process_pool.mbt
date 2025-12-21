@@ -15,7 +15,7 @@
     "lib_native.mbt": ["native"],
     "lib_js.mbt": ["js"],
     "lib_wasm.mbt": ["wasm", "wasm-gc"],
-    "lib_test.mbt": ["native"],
-    "lib_js_test.mbt": ["js"]
+    "lib_common_test.mbt": ["native", "js"],
+    "lib_native_test.mbt": ["native"]
   }
 }
