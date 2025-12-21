@@ -291,3 +291,4 @@ async test "environment inherits from parent" {
   // HOME 環境変数が継承されていることを確認
   assert_true(results[0].stdout.trim_space().to_string().length() > 0)
 }
+

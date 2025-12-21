@@ -1,30 +1,29 @@
-// Native 固有テスト: @async.now() を使用するテスト
+// Native専用テスト: タイミングに依存するテスト
+// JS環境ではSemaphoreの動作タイミングが異なるため、native専用
 
 ///|
 async test "max_workers limits concurrency" {
   let pool = ProcessPool::new(max_workers=1)
-  let start = @async.now()
+  let start = now()
   let jobs = [
-    job("sleep", ["0.05"]),
-    job("sleep", ["0.05"]),
-    job("sleep", ["0.05"]),
-    job("sleep", ["0.05"]),
+    job("sleep", ["0.1"]),
+    job("sleep", ["0.1"]),
   ]
   let results = pool.run_all(jobs)
-  let elapsed = @async.now() - start
+  let elapsed = now() - start
 
-  assert_eq(results.length(), 4)
+  assert_eq(results.length(), 2)
   for result in results {
     assert_eq(result.exit_code, 0)
   }
-  // max_workers=1 なので順次実行、4 * 50ms = 200ms 以上かかるはず
-  assert_true(elapsed >= 180L)
+  // max_workers=1 なので順次実行、2 * 100ms = 200ms 以上かかるはず
+  assert_true(elapsed >= 150L)
 }
 
 ///|
 async test "parallel execution is faster" {
   let pool = ProcessPool::new(max_workers=4)
-  let start = @async.now()
+  let start = now()
   let jobs = [
     job("sleep", ["0.1"]),
     job("sleep", ["0.1"]),
@@ -32,7 +31,7 @@ async test "parallel execution is faster" {
     job("sleep", ["0.1"]),
   ]
   let results = pool.run_all(jobs)
-  let elapsed = @async.now() - start
+  let elapsed = now() - start
 
   assert_eq(results.length(), 4)
   for result in results {

@@ -89,3 +89,8 @@ pub async fn ProcessPool::run_all(
     results
   })
 }
+
+/// 現在時刻をミリ秒で取得
+pub fn now() -> Int64 {
+  @async.now()
+}

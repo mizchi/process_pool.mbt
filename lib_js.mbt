@@ -169,3 +169,12 @@ pub async fn ProcessPool::run_all(
   }
   results
 }
+
+/// 現在時刻をミリ秒で取得
+pub fn now() -> Int64 {
+  js_date_now()
+}
+
+///|
+extern "js" fn js_date_now() -> Int64 =
+  #| () => BigInt(Date.now())
