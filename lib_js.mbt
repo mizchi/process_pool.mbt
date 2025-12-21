@@ -3,7 +3,7 @@
 // --- Node.js child_process bindings ---
 
 /// Spawn result from JS
-struct SpawnResult {
+priv struct SpawnResult {
   exit_code : Int
   stdout : String
   stderr : String
