@@ -1,6 +1,10 @@
 {
   "import": [
     "moonbitlang/async",
-    "moonbitlang/x"
+    {
+      "path": "moonbitlang/async/process",
+      "alias": "process"
+    },
+    "moonbitlang/x/encoding"
   ]
 }
