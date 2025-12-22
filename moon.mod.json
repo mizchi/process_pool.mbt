@@ -5,5 +5,6 @@
     "moonbitlang/async": "0.15.0",
     "moonbitlang/x": "0.4.38"
   },
-  "preferred-target": "native"
+  "preferred-target": "native",
+  "readme": "README.mbt.md"
 }

@@ -1,28 +1,28 @@
 # process_pool justfile
 
-# デフォルトタスク: 全テスト実行
+# Default task: run all tests
 default: test
 
-# 全ターゲットのテストを実行
+# Run tests for all targets
 test: test-native test-js
 
-# native ターゲットのテスト
+# Run tests for native target
 test-native:
     moon test --target native
 
-# js ターゲットのテスト
+# Run tests for js target
 test-js:
     moon test --target js
 
-# ビルドチェック
+# Build check
 check:
     moon check --target native
     moon check --target js
 
-# クリーン
+# Clean build artifacts
 clean:
     moon clean
 
-# example を実行 (native)
+# Run example (native)
 run-example:
-    moon run example --target native
+    cd example && moon run --target native .
