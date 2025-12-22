@@ -5,6 +5,8 @@
     "moonbitlang/async": "0.15.0",
     "moonbitlang/x": "0.4.38"
   },
+  "repository": "https://github.com/mizchi/process_pool.mbt",
+  "license": "MIT",
   "preferred-target": "native",
   "readme": "README.mbt.md"
 }
