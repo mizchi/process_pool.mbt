@@ -1,5 +1,0 @@
----
-triple:          'arm64-apple-darwin'
-binary-path:     '/Users/mz/ghq/github.com/mizchi/process_pool.mbt/_build/native/debug/test/libruntime.dylib'
-relocations:     []
-...
