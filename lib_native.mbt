@@ -31,11 +31,13 @@ async fn run_job(job : Job) -> JobResult {
   let decoder = @encoding.decoder(UTF8)
   match job.timeout {
     Some(timeout) => {
-      let result = @async.with_timeout_opt(timeout, () => @process.collect_output(
-        job.cmd,
-        job.args,
-        cwd?=job.cwd,
-      ))
+      let result = @async.with_timeout_opt(timeout, () => {
+        @process.collect_output(
+          job.cmd,
+          job.args,
+          cwd?=job.cwd.map(fn(cwd) { cwd.to_string_view() }),
+        )
+      })
       match result {
         Some((exit_code, stdout, stderr)) => {
           let stdout_str = decoder.decode_lossy(stdout.binary())
@@ -62,7 +64,7 @@ async fn run_job(job : Job) -> JobResult {
       let (exit_code, stdout, stderr) = @process.collect_output(
         job.cmd,
         job.args,
-        cwd?=job.cwd,
+        cwd?=job.cwd.map(fn(cwd) { cwd.to_string_view() }),
       )
       let stdout_str = decoder.decode_lossy(stdout.binary())
       let stderr_str = decoder.decode_lossy(stderr.binary())
@@ -103,11 +105,11 @@ pub async fn ProcessPool::run_all(
   jobs : Array[Job],
 ) -> Array[JobResult] {
   @async.with_task_group(group => {
-    let tasks = jobs.map(job => group.spawn(() => run_job_with_semaphore(
-      self.semaphore,
-      job,
-      self.on_complete,
-    )))
+    let tasks = jobs.map(job => {
+      group.spawn(() => {
+        run_job_with_semaphore(self.semaphore, job, self.on_complete)
+      })
+    })
     let results = []
     for task in tasks {
       results.push(task.wait())

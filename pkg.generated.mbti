@@ -1,9 +1,9 @@
 // Generated using `moon info`, DON'T EDIT IT
 package "mizchi/process_pool"
 
-import(
-  "moonbitlang/async/semaphore"
-)
+import {
+  "moonbitlang/async/semaphore",
+}
 
 // Values
 pub fn job(String, Array[String], cwd? : String, timeout? : Int) -> Job
