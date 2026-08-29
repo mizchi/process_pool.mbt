@@ -58,7 +58,7 @@ async test "stdout is captured correctly" {
   let pool = ProcessPool::new(max_workers=1)
   let jobs = [job("echo", ["hello world"])]
   let results = pool.run_all(jobs)
-  assert_eq(results[0].stdout.trim().to_string(), "hello world")
+  assert_eq(results[0].stdout.trim().to_owned(), "hello world")
 }
 
 ///|
@@ -66,7 +66,7 @@ async test "stderr is captured correctly" {
   let pool = ProcessPool::new(max_workers=1)
   let jobs = [job("sh", ["-c", "echo error message >&2"])]
   let results = pool.run_all(jobs)
-  assert_eq(results[0].stderr.trim().to_string(), "error message")
+  assert_eq(results[0].stderr.trim().to_owned(), "error message")
 }
 
 ///|
@@ -117,7 +117,7 @@ async test "mixed success and failure jobs" {
 async test "callback receives correct results" {
   let received : Array[String] = []
   let pool = ProcessPool::new(max_workers=1, on_complete=fn(result) {
-    received.push(result.stdout.trim().to_string())
+    received.push(result.stdout.trim().to_owned())
   })
   let jobs = [
     job("echo", ["first"]),
@@ -251,5 +251,5 @@ async test "environment inherits from parent" {
   let results = pool.run_all(jobs)
   assert_eq(results[0].exit_code, 0)
   // Verify HOME environment variable is inherited
-  assert_true(results[0].stdout.trim().to_string().length() > 0)
+  assert_true(results[0].stdout.trim().to_owned().length() > 0)
 }
