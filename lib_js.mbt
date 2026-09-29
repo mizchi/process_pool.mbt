@@ -16,9 +16,9 @@ priv struct SpawnResult {
 priv type JsPromise[T]
 
 ///|
-extern "js" fn spawn_and_collect(
+extern "js" fn spawn_and_collect_ffi(
   cmd : String,
-  args : Array[String],
+  args : FixedArray[String],
   cwd : String?,
   timeout : Int?,
 ) -> JsPromise[SpawnResult] =
@@ -54,6 +54,15 @@ extern "js" fn spawn_and_collect(
   #|     });
   #|   });
   #| }
+
+fn spawn_and_collect(
+  cmd : String,
+  args : Array[String],
+  cwd : String?,
+  timeout : Int?,
+) -> JsPromise[SpawnResult] {
+  spawn_and_collect_ffi(cmd, FixedArray::from_array(args), cwd, timeout)
+}
 
 // --- Semaphore implementation for JS ---
 //
