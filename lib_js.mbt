@@ -18,7 +18,7 @@ priv type JsPromise[T]
 ///|
 extern "js" fn spawn_and_collect(
   cmd : String,
-  args : Array[String],
+  args : FixedArray[String],
   cwd : String?,
   timeout : Int?,
 ) -> JsPromise[SpawnResult] =
@@ -81,7 +81,7 @@ struct JsSemaphore {
 
 ///|
 fn JsSemaphore::new(max : Int) -> JsSemaphore {
-  JsSemaphore::{ max, current: 0, waiters: [] }
+  JsSemaphore::{ max, current: 0, waiters: [], }
 }
 
 ///|
@@ -140,7 +140,12 @@ pub fn ProcessPool::new(
 ///|
 /// Execute a single job
 async fn run_job(job : Job) -> JobResult {
-  let promise = spawn_and_collect(job.cmd, job.args, job.cwd, job.timeout)
+  let promise = spawn_and_collect(
+    job.cmd,
+    FixedArray::from_array(job.args),
+    job.cwd,
+    job.timeout,
+  )
   let result : SpawnResult = @js_async.run_promise(fn(_signal) {
     promise.cast()
   })
@@ -181,7 +186,7 @@ pub async fn ProcessPool::run_all(
 ) -> Array[JobResult] {
   // JS version uses Promise-based parallel execution
   let promises : Array[@js_async.Promise[JobResult]] = jobs.map(fn(job) {
-    @js_async.Promise::from_async(fn() {
+    @js_async.Promise::from_async(() => {
       run_job_with_semaphore(self.semaphore, job, self.on_complete)
     })
   })

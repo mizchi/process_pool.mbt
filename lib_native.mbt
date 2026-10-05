@@ -20,7 +20,7 @@ pub fn ProcessPool::new(
 ) -> ProcessPool {
   ProcessPool::{
     max_workers,
-    semaphore: @async.Semaphore::new(max_workers),
+    semaphore: @async.Semaphore(max_workers),
     on_complete,
   }
 }

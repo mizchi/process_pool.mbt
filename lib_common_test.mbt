@@ -2,8 +2,11 @@
 
 ///|
 async test "ProcessPool runs jobs in parallel" {
-  let pool = ProcessPool::new(max_workers=2)
-  let jobs = [job("echo", ["hello"]), job("echo", ["world"])]
+  let pool = @process_pool.ProcessPool::new(max_workers=2)
+  let jobs = [
+    @process_pool.job("echo", ["hello"]),
+    @process_pool.job("echo", ["world"]),
+  ]
   let results = pool.run_all(jobs)
   assert_eq(results.length(), 2)
   assert_eq(results[0].exit_code, 0)
@@ -12,8 +15,8 @@ async test "ProcessPool runs jobs in parallel" {
 
 ///|
 async test "ProcessPool handles timeout" {
-  let pool = ProcessPool::new(max_workers=1)
-  let jobs = [job("sleep", ["5"], timeout=50)]
+  let pool = @process_pool.ProcessPool::new(max_workers=1)
+  let jobs = [@process_pool.job("sleep", ["5"], timeout=50)]
   let results = pool.run_all(jobs)
   assert_eq(results.length(), 1)
   assert_true(results[0].timed_out)
@@ -22,19 +25,27 @@ async test "ProcessPool handles timeout" {
 ///|
 async test "ProcessPool callback is called" {
   let count = @ref.new(0)
-  let pool = ProcessPool::new(max_workers=2, on_complete=fn(_result) {
+  let pool = @process_pool.ProcessPool::new(max_workers=2, on_complete=fn(
+    _result,
+  ) {
     count.val += 1
   })
-  let jobs = [job("echo", ["a"]), job("echo", ["b"]), job("echo", ["c"])]
+  let jobs = [
+    @process_pool.job("echo", ["a"]),
+    @process_pool.job("echo", ["b"]),
+    @process_pool.job("echo", ["c"]),
+  ]
   ignore(pool.run_all(jobs))
   assert_eq(count.val, 3)
 }
 
 ///|
 async test "ProcessPool map works" {
-  let pool = ProcessPool::new(max_workers=2)
+  let pool = @process_pool.ProcessPool::new(max_workers=2)
   let items : Array[Int] = [1, 2, 3]
-  let results = pool.map(items, fn(n) { job("echo", [n.to_string()]) })
+  let results = pool.map(items, fn(n) {
+    @process_pool.job("echo", [n.to_string()])
+  })
   assert_eq(results.length(), 3)
   for result in results {
     assert_eq(result.exit_code, 0)
@@ -43,11 +54,11 @@ async test "ProcessPool map works" {
 
 ///|
 async test "ProcessPool run_all_checked raises on failure" {
-  let pool = ProcessPool::new(max_workers=1)
-  let jobs = [job("false", [])]
+  let pool = @process_pool.ProcessPool::new(max_workers=1)
+  let jobs = [@process_pool.job("false", [])]
   let raised = @ref.new(false)
   ignore(pool.run_all_checked(jobs)) catch {
-    JobError::ProcessFailed(_) => raised.val = true
+    @process_pool.JobError::ProcessFailed(_) => raised.val = true
     _ => ()
   }
   assert_true(raised.val)
@@ -55,24 +66,24 @@ async test "ProcessPool run_all_checked raises on failure" {
 
 ///|
 async test "stdout is captured correctly" {
-  let pool = ProcessPool::new(max_workers=1)
-  let jobs = [job("echo", ["hello world"])]
+  let pool = @process_pool.ProcessPool::new(max_workers=1)
+  let jobs = [@process_pool.job("echo", ["hello world"])]
   let results = pool.run_all(jobs)
-  assert_eq(results[0].stdout.trim().to_string(), "hello world")
+  assert_eq(results[0].stdout.trim().to_owned(), "hello world")
 }
 
 ///|
 async test "stderr is captured correctly" {
-  let pool = ProcessPool::new(max_workers=1)
-  let jobs = [job("sh", ["-c", "echo error message >&2"])]
+  let pool = @process_pool.ProcessPool::new(max_workers=1)
+  let jobs = [@process_pool.job("sh", ["-c", "echo error message >&2"])]
   let results = pool.run_all(jobs)
-  assert_eq(results[0].stderr.trim().to_string(), "error message")
+  assert_eq(results[0].stderr.trim().to_owned(), "error message")
 }
 
 ///|
 async test "cwd parameter works" {
-  let pool = ProcessPool::new(max_workers=1)
-  let jobs = [job("pwd", [], cwd="/tmp")]
+  let pool = @process_pool.ProcessPool::new(max_workers=1)
+  let jobs = [@process_pool.job("pwd", [], cwd="/tmp")]
   let results = pool.run_all(jobs)
   assert_eq(results[0].exit_code, 0)
   assert_true(results[0].stdout.contains("/tmp"))
@@ -80,19 +91,19 @@ async test "cwd parameter works" {
 
 ///|
 async test "empty job list returns empty results" {
-  let pool = ProcessPool::new(max_workers=2)
-  let jobs : Array[Job] = []
+  let pool = @process_pool.ProcessPool::new(max_workers=2)
+  let jobs : Array[@process_pool.Job] = []
   let results = pool.run_all(jobs)
   assert_eq(results.length(), 0)
 }
 
 ///|
 async test "run_all_checked raises on timeout" {
-  let pool = ProcessPool::new(max_workers=1)
-  let jobs = [job("sleep", ["10"], timeout=50)]
+  let pool = @process_pool.ProcessPool::new(max_workers=1)
+  let jobs = [@process_pool.job("sleep", ["10"], timeout=50)]
   let raised = @ref.new(false)
   ignore(pool.run_all_checked(jobs)) catch {
-    JobError::ProcessTimedOut(_) => raised.val = true
+    @process_pool.JobError::ProcessTimedOut(_) => raised.val = true
     _ => ()
   }
   assert_true(raised.val)
@@ -100,11 +111,11 @@ async test "run_all_checked raises on timeout" {
 
 ///|
 async test "mixed success and failure jobs" {
-  let pool = ProcessPool::new(max_workers=2)
+  let pool = @process_pool.ProcessPool::new(max_workers=2)
   let jobs = [
-    job("echo", ["success1"]),
-    job("false", []),
-    job("echo", ["success2"]),
+    @process_pool.job("echo", ["success1"]),
+    @process_pool.job("false", []),
+    @process_pool.job("echo", ["success2"]),
   ]
   let results = pool.run_all(jobs)
   assert_eq(results.length(), 3)
@@ -116,13 +127,15 @@ async test "mixed success and failure jobs" {
 ///|
 async test "callback receives correct results" {
   let received : Array[String] = []
-  let pool = ProcessPool::new(max_workers=1, on_complete=fn(result) {
-    received.push(result.stdout.trim().to_string())
+  let pool = @process_pool.ProcessPool::new(max_workers=1, on_complete=fn(
+    result,
+  ) {
+    received.push(result.stdout.trim().to_owned())
   })
   let jobs = [
-    job("echo", ["first"]),
-    job("echo", ["second"]),
-    job("echo", ["third"]),
+    @process_pool.job("echo", ["first"]),
+    @process_pool.job("echo", ["second"]),
+    @process_pool.job("echo", ["third"]),
   ]
   ignore(pool.run_all(jobs))
   assert_eq(received.length(), 3)
@@ -133,8 +146,8 @@ async test "callback receives correct results" {
 
 ///|
 async test "job with both stdout and stderr" {
-  let pool = ProcessPool::new(max_workers=1)
-  let jobs = [job("sh", ["-c", "echo out && echo err >&2"])]
+  let pool = @process_pool.ProcessPool::new(max_workers=1)
+  let jobs = [@process_pool.job("sh", ["-c", "echo out && echo err >&2"])]
   let results = pool.run_all(jobs)
   assert_eq(results[0].exit_code, 0)
   assert_true(results[0].stdout.contains("out"))
@@ -143,10 +156,10 @@ async test "job with both stdout and stderr" {
 
 ///|
 async test "large number of jobs" {
-  let pool = ProcessPool::new(max_workers=4)
-  let jobs : Array[Job] = []
+  let pool = @process_pool.ProcessPool::new(max_workers=4)
+  let jobs : Array[@process_pool.Job] = []
   for i in 0..<20 {
-    jobs.push(job("echo", [i.to_string()]))
+    jobs.push(@process_pool.job("echo", [i.to_string()]))
   }
   let results = pool.run_all(jobs)
   assert_eq(results.length(), 20)
@@ -158,8 +171,8 @@ async test "large number of jobs" {
 ///|
 async test "default max_workers" {
   // Test default value when max_workers is not specified
-  let pool = ProcessPool::new()
-  let jobs = [job("echo", ["test"])]
+  let pool = @process_pool.ProcessPool::new()
+  let jobs = [@process_pool.job("echo", ["test"])]
   let results = pool.run_all(jobs)
   assert_eq(results.length(), 1)
   assert_eq(results[0].exit_code, 0)
@@ -167,15 +180,16 @@ async test "default max_workers" {
 
 ///|
 async test "run_all_checked raises on first failure" {
-  let pool = ProcessPool::new(max_workers=1)
+  let pool = @process_pool.ProcessPool::new(max_workers=1)
   let jobs = [
-    job("echo", ["before"]),
-    job("false", []), // Should fail here
-    job("echo", ["after"]),
+    @process_pool.job("echo", ["before"]),
+    @process_pool.job("false", []), // Should fail here
+    @process_pool.job("echo", ["after"]),
   ]
   let error_job_cmd = @ref.new("")
   ignore(pool.run_all_checked(jobs)) catch {
-    JobError::ProcessFailed(job~, ..) => error_job_cmd.val = job.cmd
+    @process_pool.JobError::ProcessFailed(job~, ..) =>
+      error_job_cmd.val = job.cmd
     _ => ()
   }
   assert_eq(error_job_cmd.val, "false")
@@ -183,11 +197,12 @@ async test "run_all_checked raises on first failure" {
 
 ///|
 async test "JobError contains correct exit_code" {
-  let pool = ProcessPool::new(max_workers=1)
-  let jobs = [job("sh", ["-c", "exit 42"])]
+  let pool = @process_pool.ProcessPool::new(max_workers=1)
+  let jobs = [@process_pool.job("sh", ["-c", "exit 42"])]
   let captured_code = @ref.new(0)
   ignore(pool.run_all_checked(jobs)) catch {
-    JobError::ProcessFailed(exit_code~, ..) => captured_code.val = exit_code
+    @process_pool.JobError::ProcessFailed(exit_code~, ..) =>
+      captured_code.val = exit_code
     _ => ()
   }
   assert_eq(captured_code.val, 42)
@@ -195,12 +210,14 @@ async test "JobError contains correct exit_code" {
 
 ///|
 async test "JobError contains stdout and stderr" {
-  let pool = ProcessPool::new(max_workers=1)
-  let jobs = [job("sh", ["-c", "echo output && echo error >&2 && exit 1"])]
+  let pool = @process_pool.ProcessPool::new(max_workers=1)
+  let jobs = [
+    @process_pool.job("sh", ["-c", "echo output && echo error >&2 && exit 1"]),
+  ]
   let captured_stdout = @ref.new("")
   let captured_stderr = @ref.new("")
   ignore(pool.run_all_checked(jobs)) catch {
-    JobError::ProcessFailed(stdout~, stderr~, ..) => {
+    @process_pool.JobError::ProcessFailed(stdout~, stderr~, ..) => {
       captured_stdout.val = stdout
       captured_stderr.val = stderr
     }
@@ -212,8 +229,13 @@ async test "JobError contains stdout and stderr" {
 
 ///|
 async test "JobResult preserves original job" {
-  let pool = ProcessPool::new(max_workers=1)
-  let original_job = job("echo", ["preserve test"], cwd="/tmp", timeout=1000)
+  let pool = @process_pool.ProcessPool::new(max_workers=1)
+  let original_job = @process_pool.job(
+    "echo",
+    ["preserve test"],
+    cwd="/tmp",
+    timeout=1000,
+  )
   let jobs = [original_job]
   let results = pool.run_all(jobs)
   assert_eq(results[0].job.cmd, "echo")
@@ -224,10 +246,10 @@ async test "JobResult preserves original job" {
 
 ///|
 async test "multiple timeouts" {
-  let pool = ProcessPool::new(max_workers=2)
+  let pool = @process_pool.ProcessPool::new(max_workers=2)
   let jobs = [
-    job("sleep", ["10"], timeout=30),
-    job("sleep", ["10"], timeout=30),
+    @process_pool.job("sleep", ["10"], timeout=30),
+    @process_pool.job("sleep", ["10"], timeout=30),
   ]
   let results = pool.run_all(jobs)
   assert_eq(results.length(), 2)
@@ -237,8 +259,8 @@ async test "multiple timeouts" {
 
 ///|
 async test "special characters in arguments" {
-  let pool = ProcessPool::new(max_workers=1)
-  let jobs = [job("echo", ["hello world", "foo\tbar", "a'b\"c"])]
+  let pool = @process_pool.ProcessPool::new(max_workers=1)
+  let jobs = [@process_pool.job("echo", ["hello world", "foo\tbar", "a'b\"c"])]
   let results = pool.run_all(jobs)
   assert_eq(results[0].exit_code, 0)
   assert_true(results[0].stdout.contains("hello world"))
@@ -246,10 +268,10 @@ async test "special characters in arguments" {
 
 ///|
 async test "environment inherits from parent" {
-  let pool = ProcessPool::new(max_workers=1)
-  let jobs = [job("sh", ["-c", "echo $HOME"])]
+  let pool = @process_pool.ProcessPool::new(max_workers=1)
+  let jobs = [@process_pool.job("sh", ["-c", "echo $HOME"])]
   let results = pool.run_all(jobs)
   assert_eq(results[0].exit_code, 0)
   // Verify HOME environment variable is inherited
-  assert_true(results[0].stdout.trim().to_string().length() > 0)
+  assert_true(results[0].stdout.trim().to_owned().length() > 0)
 }

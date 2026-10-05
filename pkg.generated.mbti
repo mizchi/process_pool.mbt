@@ -49,4 +49,3 @@ pub async fn ProcessPool::run_all_checked(Self, Array[Job]) -> Array[JobResult]
 // Type aliases
 
 // Traits
-

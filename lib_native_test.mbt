@@ -12,11 +12,14 @@
 
 ///|
 async test "max_workers limits concurrency" {
-  let pool = ProcessPool::new(max_workers=1)
-  let start = now()
-  let jobs = [job("sleep", ["0.1"]), job("sleep", ["0.1"])]
+  let pool = @process_pool.ProcessPool::new(max_workers=1)
+  let start = @process_pool.now()
+  let jobs = [
+    @process_pool.job("sleep", ["0.1"]),
+    @process_pool.job("sleep", ["0.1"]),
+  ]
   let results = pool.run_all(jobs)
-  let elapsed = now() - start
+  let elapsed = @process_pool.now() - start
   assert_eq(results.length(), 2)
   for result in results {
     assert_eq(result.exit_code, 0)
@@ -27,16 +30,16 @@ async test "max_workers limits concurrency" {
 
 ///|
 async test "parallel execution is faster" {
-  let pool = ProcessPool::new(max_workers=4)
-  let start = now()
+  let pool = @process_pool.ProcessPool::new(max_workers=4)
+  let start = @process_pool.now()
   let jobs = [
-    job("sleep", ["0.1"]),
-    job("sleep", ["0.1"]),
-    job("sleep", ["0.1"]),
-    job("sleep", ["0.1"]),
+    @process_pool.job("sleep", ["0.1"]),
+    @process_pool.job("sleep", ["0.1"]),
+    @process_pool.job("sleep", ["0.1"]),
+    @process_pool.job("sleep", ["0.1"]),
   ]
   let results = pool.run_all(jobs)
-  let elapsed = now() - start
+  let elapsed = @process_pool.now() - start
   assert_eq(results.length(), 4)
   for result in results {
     assert_eq(result.exit_code, 0)
