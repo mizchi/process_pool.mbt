@@ -1,6 +1,6 @@
 name = "mizchi/process_pool"
 
-version = "0.1.3"
+version = "0.1.4"
 
 import {
   "moonbitlang/async@0.22.4",
