@@ -24,11 +24,12 @@ jobs:
         run: moon update
 
       - name: Check code
-        run: moon check
+        run: moon check --deny-warn --target native,js
 
       - name: Format check
         run: |
           moon fmt
+          (cd example && moon fmt)
           git diff --exit-code || (echo "Code is not formatted. Run 'moon fmt' to fix." && exit 1)
 
   test-native:
@@ -43,6 +44,12 @@ jobs:
 
       - name: Update dependencies
         run: moon update
+
+      - name: Check and build native example
+        working-directory: example
+        run: |
+          moon check --deny-warn --target native
+          moon build --target native
 
       - name: Run native tests
         run: moon test --target native
@@ -64,6 +71,12 @@ jobs:
 
       - name: Update dependencies
         run: moon update
+
+      - name: Check and build JS example
+        working-directory: example
+        run: |
+          moon check --deny-warn --target js
+          moon build --target js
 
       - name: Run JS tests
         run: moon test --target js

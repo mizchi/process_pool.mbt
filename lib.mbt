@@ -60,6 +60,13 @@ pub suberror JobError {
 pub(all) struct OnJobComplete((JobResult) -> Unit)
 
 ///|
+/// Backward-compatible accessor for the former generated newtype method.
+#deprecated
+pub fn OnJobComplete::inner(self : OnJobComplete) -> (JobResult) -> Unit {
+  self.0
+}
+
+///|
 /// Helper function to create a job
 ///
 /// Parameters:
@@ -73,7 +80,7 @@ pub fn job(
   cwd? : String,
   timeout? : Int,
 ) -> Job {
-  Job::{ cmd, args, cwd, timeout }
+  Job::{ cmd, args, cwd, timeout, }
 }
 
 ///|

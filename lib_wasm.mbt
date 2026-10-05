@@ -14,7 +14,7 @@ pub fn ProcessPool::new(
   max_workers? : Int = 4,
   on_complete? : OnJobComplete,
 ) -> ProcessPool {
-  ProcessPool::{ max_workers, on_complete }
+  ProcessPool::{ max_workers, on_complete, }
 }
 
 ///|

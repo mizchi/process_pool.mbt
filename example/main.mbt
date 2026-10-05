@@ -42,18 +42,18 @@ async fn main {
     for result in job_results {
       if result.exit_code == 0 {
         // Parse JSON output to get word count
-        let output = result.stdout.trim_space().to_string()
+        let output = result.stdout.trim().to_owned()
         // Simple extraction of "words" field using index search
         let words_key = "\"words\":"
         let idx = find_substring(output, words_key)
         if idx >= 0 {
           let start_pos = idx + words_key.length()
-          let after_key = output[start_pos:].to_string()
+          let after_key = output[start_pos:].to_owned()
           let comma_idx = find_char(after_key, ',')
           let num_str = if comma_idx >= 0 {
-            after_key[:comma_idx].to_string().trim_space().to_string()
+            after_key[:comma_idx].to_owned().trim().to_owned()
           } else {
-            after_key.trim_space().to_string()
+            after_key.trim().to_owned()
           }
           let n = parse_int_simple(num_str)
           if n >= 0 {
@@ -85,19 +85,23 @@ async fn main {
     if i == 0 {
       println("  \{workers} worker:  \{elapsed}ms (baseline)")
     } else {
-      println("  \{workers} workers: \{elapsed}ms (\{format_speedup(speedup)}x speedup)")
+      println(
+        "  \{workers} workers: \{elapsed}ms (\{format_speedup(speedup)}x speedup)",
+      )
     }
   }
   println("")
   println("=== Done ===")
 }
 
+///|
 fn format_speedup(x : Double) -> String {
   let int_part = x.to_int()
   let frac_part = ((x - int_part.to_double()) * 100.0).to_int()
   "\{int_part}.\{frac_part.to_string().pad_start(2, '0')}"
 }
 
+///|
 fn find_substring(haystack : String, needle : String) -> Int {
   let h_chars = haystack.to_array()
   let n_chars = needle.to_array()
@@ -121,6 +125,7 @@ fn find_substring(haystack : String, needle : String) -> Int {
   -1
 }
 
+///|
 fn find_char(s : String, c : Char) -> Int {
   let chars = s.to_array()
   for i = 0; i < chars.length(); i = i + 1 {
@@ -131,6 +136,7 @@ fn find_char(s : String, c : Char) -> Int {
   -1
 }
 
+///|
 fn parse_int_simple(s : String) -> Int {
   let chars = s.to_array()
   let mut result = 0

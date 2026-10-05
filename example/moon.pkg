@@ -1,0 +1,6 @@
+import {
+  "mizchi/process_pool",
+  "moonbitlang/async",
+}
+
+pkgtype(kind: "executable")

@@ -1,8 +1,8 @@
 import {
-  "moonbitlang/core/ref" @ref,
+  "moonbitlang/core/ref",
   "moonbitlang/async",
-  "moonbitlang/async/process" @process,
-  "moonbitlang/async/js_async" @js_async,
+  "moonbitlang/async/process",
+  "moonbitlang/async/js_async",
   "moonbitlang/x/encoding",
 }
 
